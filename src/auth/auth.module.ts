@@ -17,7 +17,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         global: true,
         secret: configService.get<string>('SECRET'),
         signOptions: {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           expiresIn: configService.get<string>('EXP_IN_ACCESS_TOKEN') as any,
         },
       }),

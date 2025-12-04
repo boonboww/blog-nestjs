@@ -21,7 +21,7 @@ import { PostService } from './post.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { FilterPostDto } from './dto/filter-post.dto';
 import { Post as PostEntity } from './entities/post.entity';
-import { UpdatePostDto } from './dto/update-post.sto';
+import { UpdatePostDto } from './dto/update-post.dto';
 
 @Controller('posts')
 export class PostController {
@@ -96,6 +96,7 @@ export class PostController {
           req.fileValidationError = `Wrong extension type. Accepted file ext are: ${allowedExtArr.toString()}`;
           cb(null, false);
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           const fileSize = parseInt(req.headers['content-length']);
           if (fileSize > 1024 * 1024 * 5) {
             req.fileValidationError =

@@ -42,7 +42,7 @@ export class AuthService {
     }
 
     const payload = { id: user.id, email: user.email };
-    return this.generateToken(payload);
+    return this.generateToken(payload, user);
   }
 
   async refreshToken(refresh_token: string): Promise<any> {
@@ -69,7 +69,10 @@ export class AuthService {
     }
   }
 
-  private async generateToken(payload: { id: number; email: string }) {
+  private async generateToken(
+    payload: { id: number; email: string },
+    user?: User,
+  ) {
     const access_token = await this.jwtService.signAsync(payload);
     const refresh_token = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('SECRET'),
@@ -79,6 +82,20 @@ export class AuthService {
       { email: payload.email },
       { refresh_token: refresh_token },
     );
+
+    // Nếu có user, trả về thêm thông tin user
+    if (user) {
+      return {
+        access_token,
+        refresh_token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+      };
+    }
+
     return { access_token, refresh_token };
   }
 

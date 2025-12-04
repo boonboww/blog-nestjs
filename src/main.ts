@@ -1,8 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // ENABLE CORS FOR FRONTEND
+  app.enableCors({
+    origin: 'http://localhost:5173', // FE Vite
+    methods: 'GET,POST,PUT,PATCH,DELETE',
+    credentials: true,
+  });
+
   const config = new DocumentBuilder()
     .setTitle('Blog APIs')
     .setDescription('List APIs for simple blog application')
@@ -11,8 +20,11 @@ async function bootstrap() {
     .addTag('Users')
     .addBearerAuth()
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
+
   await app.listen(process.env.PORT ?? 3000);
 }
+
 bootstrap();
