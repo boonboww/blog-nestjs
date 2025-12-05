@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { PostModule } from './post/post.module';
 import { CategoryModule } from './category/category.module';
+import { ChatModule } from './chat/chat.module';
+import { FriendModule } from './friend/friend.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { CategoryModule } from './category/category.module';
     ConfigModule.forRoot(),
     PostModule,
     CategoryModule,
+    ChatModule,
+    FriendModule,
   ],
   controllers: [AppController],
   providers: [AppService],
