@@ -65,18 +65,41 @@ export class FriendController {
     return await this.friendService.blockUser(userId, Number(targetUserId));
   }
 
-  // Lấy danh sách bạn bè
+  // Lấy danh sách bạn bè của mình
   @Get('list')
   async getFriends(@Request() req, @Query() query: GetFriendsDto) {
     const userId = Number(req.user_data.id);
     return await this.friendService.getFriends(userId, query);
   }
 
-  // Lấy danh sách lời mời đang chờ
+  // Lấy danh sách bạn bè của một user cụ thể theo userId
+  @Get('user/:userId')
+  async getFriendsByUserId(
+    @Param('userId') userId: string,
+    @Query() query: GetFriendsDto,
+  ) {
+    return await this.friendService.getFriendsByUserId(Number(userId), query);
+  }
+
+  // Lấy danh sách lời mời đang chờ (nhận được)
   @Get('pending')
   async getPendingRequests(@Request() req) {
     const userId = Number(req.user_data.id);
     return await this.friendService.getPendingRequests(userId);
+  }
+
+  // Lấy danh sách lời mời đã gửi đi (pending)
+  @Get('pending/sent')
+  async getSentPendingRequests(@Request() req) {
+    const userId = Number(req.user_data.id);
+    return await this.friendService.getSentPendingRequests(userId);
+  }
+
+  // Lấy danh sách gợi ý kết bạn (người chưa kết bạn)
+  @Get('suggested')
+  async getSuggestedFriends(@Request() req) {
+    const userId = Number(req.user_data.id);
+    return await this.friendService.getSuggestedFriends(userId);
   }
 
   // Kiểm tra trạng thái kết bạn với user khác

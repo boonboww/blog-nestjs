@@ -283,6 +283,101 @@ export class FriendService {
     }));
   }
 
+  // Lấy danh sách bạn bè của một user cụ thể theo userId
+  async getFriendsByUserId(userId: number, query: GetFriendsDto) {
+    const { page = 1, limit = 10, search } = query;
+    const skip = (page - 1) * limit;
+
+    // Kiểm tra user có tồn tại không
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Query builder để lấy friends của user này
+    const queryBuilder = this.friendshipRepository
+      .createQueryBuilder('friendship')
+      .where('friendship.status = :status', {
+        status: FriendshipStatus.ACCEPTED,
+      })
+      .andWhere(
+        '(friendship.requester_id = :userId OR friendship.addressee_id = :userId)',
+        { userId },
+      );
+
+    // Join với User để lấy thông tin bạn bè
+    queryBuilder
+      .leftJoinAndSelect('friendship.requester', 'requester')
+      .leftJoinAndSelect('friendship.addressee', 'addressee');
+
+    // Nếu có search, tìm theo tên
+    if (search) {
+      queryBuilder.andWhere(
+        '(CONCAT(requester.first_Name, " ", requester.last_Name) LIKE :search OR CONCAT(addressee.first_Name, " ", addressee.last_Name) LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Pagination
+    queryBuilder.skip(skip).take(limit);
+
+    const [friendships, total] = await queryBuilder.getManyAndCount();
+
+    // Map để lấy thông tin user (không phải target user)
+    const friends = friendships.map((friendship) => {
+      const friend =
+        friendship.requester_id === userId
+          ? friendship.addressee
+          : friendship.requester;
+
+      return {
+        id: friend.id,
+        first_Name: friend.first_Name,
+        last_Name: friend.last_Name,
+        email: friend.email,
+        avatar: friend.avatar,
+        friendshipId: friendship.id,
+        friendsSince: friendship.created_at,
+      };
+    });
+
+    return {
+      data: friends,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Lấy các lời mời kết bạn mà user đã gửi đi (pending)
+  async getSentPendingRequests(userId: number) {
+    const requests = await this.friendshipRepository.find({
+      where: {
+        requester_id: userId,
+        status: FriendshipStatus.PENDING,
+      },
+      relations: ['addressee'],
+      order: {
+        created_at: 'DESC',
+      },
+    });
+
+    return requests.map((request) => ({
+      friendshipId: request.id,
+      addressee: {
+        id: request.addressee.id,
+        first_Name: request.addressee.first_Name,
+        last_Name: request.addressee.last_Name,
+        email: request.addressee.email,
+        avatar: request.addressee.avatar,
+      },
+      createdAt: request.created_at,
+    }));
+  }
+
   async checkFriendshipStatus(userId1: number, userId2: number) {
     const friendship = await this.friendshipRepository.findOne({
       where: [
@@ -321,5 +416,37 @@ export class FriendService {
     });
 
     return !!friendship;
+  }
+
+  async getSuggestedFriends(userId: number) {
+    // 1. Tìm tất cả user ID đã có quan hệ (bất kể status)
+    const qb = this.friendshipRepository.createQueryBuilder('friendship');
+
+    const friendships = await qb
+      .select(['friendship.requester_id', 'friendship.addressee_id'])
+      .where(
+        'friendship.requester_id = :userId OR friendship.addressee_id = :userId',
+        { userId },
+      )
+      .getMany();
+
+    const excludeIds = new Set<number>();
+    excludeIds.add(userId); // Exclude self
+
+    friendships.forEach((f) => {
+      if (f.requester_id === userId) excludeIds.add(f.addressee_id);
+      else excludeIds.add(f.requester_id);
+    });
+
+    // 2. Query user NOT IN list này
+    return await this.userRepository.find({
+      where: {
+        id: Not(In([...excludeIds])),
+        status: 1, // Active users only
+        role: Not('admin'), // Optional: exclude admins if needed
+      },
+      select: ['id', 'first_Name', 'last_Name', 'avatar', 'email'],
+      take: 20, // Limit suggestions
+    });
   }
 }

@@ -1,13 +1,15 @@
-import { Category } from 'src/category/entities/category.entity';
 import { User } from 'src/user/entities/user.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Like } from './like.entity';
+import { Comment } from './comment.entity';
 
 @Entity()
 export class Post {
@@ -35,6 +37,9 @@ export class Post {
   @ManyToOne(() => User, (user) => user.posts)
   user: User;
 
-  @ManyToOne(() => Category, (category) => category.posts)
-  category: Category;
+  @OneToMany(() => Like, (like) => like.post)
+  likes: Like[];
+
+  @OneToMany(() => Comment, (comment) => comment.post)
+  comments: Comment[];
 }

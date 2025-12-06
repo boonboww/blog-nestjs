@@ -22,6 +22,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { FilterPostDto } from './dto/filter-post.dto';
 import { Post as PostEntity } from './entities/post.entity';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Controller('posts')
 export class PostController {
@@ -79,6 +80,15 @@ export class PostController {
   }
 
   @UseGuards(AuthGuard)
+  @Get('user/:userId')
+  findByUserId(
+    @Param('userId') userId: string,
+    @Query() query: FilterPostDto,
+  ): Promise<any> {
+    return this.postService.findByUserId(Number(userId), query);
+  }
+
+  @UseGuards(AuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string): Promise<PostEntity> {
     return this.postService.findDetail(Number(id));
@@ -130,5 +140,65 @@ export class PostController {
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.postService.delete(Number(id));
+  }
+
+  // ============ LIKE ENDPOINTS ============
+
+  @UseGuards(AuthGuard)
+  @Post(':id/like')
+  likePost(@Param('id') id: string, @Req() req: any) {
+    return this.postService.likePost(Number(id), Number(req.user_data.id));
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id/like')
+  unlikePost(@Param('id') id: string, @Req() req: any) {
+    return this.postService.unlikePost(Number(id), Number(req.user_data.id));
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/likes')
+  getLikes(@Param('id') id: string) {
+    return this.postService.getLikes(Number(id));
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/liked')
+  checkUserLiked(@Param('id') id: string, @Req() req: any) {
+    return this.postService.checkUserLiked(
+      Number(id),
+      Number(req.user_data.id),
+    );
+  }
+
+  // ============ COMMENT ENDPOINTS ============
+
+  @UseGuards(AuthGuard)
+  @Post(':id/comments')
+  createComment(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.postService.createComment(
+      Number(id),
+      Number(req.user_data.id),
+      dto,
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/comments')
+  getComments(@Param('id') id: string) {
+    return this.postService.getComments(Number(id));
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete('comments/:commentId')
+  deleteComment(@Param('commentId') commentId: string, @Req() req: any) {
+    return this.postService.deleteComment(
+      Number(commentId),
+      Number(req.user_data.id),
+    );
   }
 }
