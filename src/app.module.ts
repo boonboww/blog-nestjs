@@ -9,22 +9,18 @@ import { ConfigModule } from '@nestjs/config';
 import { PostModule } from './post/post.module';
 import { ChatModule } from './chat/chat.module';
 import { FriendModule } from './friend/friend.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
+import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot(dataSourceOptions),
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-    }),
     UserModule,
     AuthModule,
     ConfigModule.forRoot(),
     PostModule,
     ChatModule,
     FriendModule,
+    SupabaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

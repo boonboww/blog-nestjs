@@ -23,8 +23,11 @@ export class AuthService {
   async register(registerUserDto: RegisterUserDto): Promise<User> {
     const hashedPassword = await this.hashPassword(registerUserDto.password);
     return await this.userRepository.save({
-      ...registerUserDto,
+      first_Name: registerUserDto.firstName,
+      last_Name: registerUserDto.lastName,
+      email: registerUserDto.email,
       password: hashedPassword,
+      status: registerUserDto.status,
     });
   }
 

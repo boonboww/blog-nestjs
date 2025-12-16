@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import { CreatePostDto } from './dto/create-post.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { storageConfig } from 'helpers/config';
 import { extname } from 'path';
 import { PostService } from './post.service';
 import { AuthGuard } from 'src/auth/auth.guard';
@@ -23,18 +22,23 @@ import { FilterPostDto } from './dto/filter-post.dto';
 import { Post as PostEntity } from './entities/post.entity';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { SupabaseService } from 'src/supabase/supabase.service';
+import { memoryStorage } from 'multer';
 
 @Controller('posts')
 export class PostController {
-  constructor(private postService: PostService) {}
+  constructor(
+    private postService: PostService,
+    private supabaseService: SupabaseService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
   @UseInterceptors(
     FileInterceptor('thumbnail', {
-      storage: storageConfig('post'),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        const ext = extname(file.originalname);
+        const ext = extname(file.originalname).toLowerCase();
         const allowedExtArr = ['.jpg', '.png', '.jpeg'];
         if (!allowedExtArr.includes(ext)) {
           req.fileValidationError = `Wrong extension type. Accepted file ext are: ${allowedExtArr.toString()}`;
@@ -52,14 +56,11 @@ export class PostController {
       },
     }),
   )
-  create(
+  async create(
     @Req() req: any,
     @Body() createPostDto: CreatePostDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    console.log(req['user_data']);
-    console.log(createPostDto);
-    console.log(file);
     if (req.fileValidationError) {
       throw new BadRequestException(req.fileValidationError);
     }
@@ -67,9 +68,21 @@ export class PostController {
       throw new BadRequestException('File is required');
     }
 
+    // Upload to Supabase Storage
+    const ext = extname(file.originalname).toLowerCase();
+    const filename = `post-${Date.now()}${ext}`;
+    const path = `posts/${filename}`;
+
+    const thumbnailUrl = await this.supabaseService.uploadFile(
+      'images',
+      path,
+      file.buffer,
+      file.mimetype,
+    );
+
     return this.postService.create(req['user_data'].id, {
       ...createPostDto,
-      thumbnail: file.destination + '/' + file.filename,
+      thumbnail: thumbnailUrl,
     });
   }
 
@@ -98,15 +111,14 @@ export class PostController {
   @Put(':id')
   @UseInterceptors(
     FileInterceptor('thumbnail', {
-      storage: storageConfig('post'),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        const ext = extname(file.originalname);
+        const ext = extname(file.originalname).toLowerCase();
         const allowedExtArr = ['.jpg', '.png', '.jpeg'];
         if (!allowedExtArr.includes(ext)) {
           req.fileValidationError = `Wrong extension type. Accepted file ext are: ${allowedExtArr.toString()}`;
           cb(null, false);
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           const fileSize = parseInt(req.headers['content-length']);
           if (fileSize > 1024 * 1024 * 5) {
             req.fileValidationError =
@@ -119,7 +131,7 @@ export class PostController {
       },
     }),
   )
-  update(
+  async update(
     @Param('id') id: string,
     @Req() req: any,
     @Body() updatePostDto: UpdatePostDto,
@@ -130,7 +142,18 @@ export class PostController {
     }
 
     if (file) {
-      updatePostDto.thumbnail = file.destination + '/' + file.filename;
+      // Upload new thumbnail to Supabase Storage
+      const ext = extname(file.originalname).toLowerCase();
+      const filename = `post-${Date.now()}${ext}`;
+      const path = `posts/${filename}`;
+
+      const thumbnailUrl = await this.supabaseService.uploadFile(
+        'images',
+        path,
+        file.buffer,
+        file.mimetype,
+      );
+      updatePostDto.thumbnail = thumbnailUrl;
     }
 
     return this.postService.update(Number(id), updatePostDto);

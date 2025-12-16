@@ -23,14 +23,19 @@ import { DeleteResult } from 'typeorm';
 import { FilterUserDto } from './dto/filter-user.dto';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { storageConfig } from 'helpers/config';
 import { extname } from 'path';
+import { SupabaseService } from 'src/supabase/supabase.service';
+import { memoryStorage } from 'multer';
 
 @ApiBearerAuth()
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
+
   @UseGuards(AuthGuard)
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'items_per_page', required: false })
@@ -46,16 +51,19 @@ export class UserController {
   findOne(@Param('id') id: string): Promise<User | null> {
     return this.userService.findOne(+id);
   }
+
   @UseGuards(AuthGuard)
   @Post()
   create(@Body() createUserDto: CreateUserDto): Promise<User> {
     return this.userService.create(createUserDto);
   }
+
   @UseGuards(AuthGuard)
   @Put(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.userService.update(+id, updateUserDto);
   }
+
   @Delete('multiple')
   multipleDelete(
     @Query('ids', new ParseArrayPipe({ items: String, separator: ',' }))
@@ -75,9 +83,9 @@ export class UserController {
   @UseGuards(AuthGuard)
   @UseInterceptors(
     FileInterceptor('avatar', {
-      storage: storageConfig('avatar'),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        const ext = extname(file.originalname);
+        const ext = extname(file.originalname).toLowerCase();
         const allowedExtArr = ['.jpg', '.png', '.jpeg'];
         if (!allowedExtArr.includes(ext)) {
           req.fileValidationError = `Wrong extension type. Accepted file ext are: ${allowedExtArr.toString()}`;
@@ -95,20 +103,32 @@ export class UserController {
       },
     }),
   )
-  uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
-    console.log('upload avatar');
-    console.log('user data', req.user_data);
-    console.log(file);
-
+  async uploadAvatar(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     if (req.fileValidationError) {
       throw new BadRequestException(req.fileValidationError);
     }
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    this.userService.updateAvatar(
-      req.user_data.id,
-      file.destination + '/' + file.filename,
+
+    // Upload to Supabase Storage
+    const ext = extname(file.originalname).toLowerCase();
+    const filename = `avatar-${req.user_data.id}-${Date.now()}${ext}`;
+    const path = `avatars/${filename}`;
+
+    const publicUrl = await this.supabaseService.uploadFile(
+      'images',
+      path,
+      file.buffer,
+      file.mimetype,
     );
+
+    // Update user avatar URL in database
+    await this.userService.updateAvatar(req.user_data.id, publicUrl);
+
+    return { url: publicUrl };
   }
 }
