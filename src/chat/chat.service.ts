@@ -93,10 +93,10 @@ export class ChatService {
     // Get all distinct users that userId has chatted with
     const conversations = await this.messageRepository
       .createQueryBuilder('message')
-      .select('DISTINCT other_user_id', 'userId')
-      .addSelect('MAX(message.created_at)', 'lastMessageTime')
+      .select('DISTINCT sub.other_user_id', 'userId')
+      .addSelect('MAX(sub.created_at)', 'lastMessageTime')
       .addSelect(
-        'SUM(CASE WHEN message.receiver_id = :userId AND message.is_read = false THEN 1 ELSE 0 END)',
+        'SUM(CASE WHEN sub.receiver_id = :userId AND sub.is_read = false THEN 1 ELSE 0 END)',
         'unreadCount',
       )
       .from((subQuery) => {
@@ -113,8 +113,8 @@ export class ChatService {
           .addSelect('created_at')
           .from(Message, 'msg')
           .where('sender_id = :userId OR receiver_id = :userId', { userId });
-      }, 'message')
-      .groupBy('other_user_id')
+      }, 'sub')
+      .groupBy('sub.other_user_id')
       .orderBy('lastMessageTime', 'DESC')
       .setParameter('userId', userId)
       .getRawMany();
