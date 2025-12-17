@@ -10,6 +10,7 @@ import { PostModule } from './post/post.module';
 import { ChatModule } from './chat/chat.module';
 import { FriendModule } from './friend/friend.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     ChatModule,
     FriendModule,
     SupabaseModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -18,11 +18,13 @@ export class ChatService {
     senderId: number,
     receiverId: number,
     content: string,
+    imageUrl?: string,
   ): Promise<Message> {
     const message = this.messageRepository.create({
       sender_id: senderId,
       receiver_id: receiverId,
       content,
+      image_url: imageUrl,
       is_read: false,
     });
 
@@ -72,6 +74,7 @@ export class ChatService {
       senderName: `${msg.sender.first_Name} ${msg.sender.last_Name}`,
       senderAvatar: msg.sender.avatar,
       content: msg.content,
+      imageUrl: msg.image_url,
       isRead: msg.is_read,
       isFromMe: msg.sender_id === currentUserId,
       createdAt: msg.created_at,

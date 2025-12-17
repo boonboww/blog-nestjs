@@ -8,6 +8,7 @@ import { ChatController } from './chat.controller';
 import { FriendModule } from 'src/friend/friend.module';
 import { Message } from './entities/message.entity';
 import { User } from 'src/user/entities/user.entity';
+import { SupabaseModule } from 'src/supabase/supabase.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { User } from 'src/user/entities/user.entity';
     FriendModule,
     JwtModule,
     ConfigModule,
+    SupabaseModule, // Import để upload ảnh chat
   ],
   providers: [ChatGateway, ChatService],
   controllers: [ChatController],

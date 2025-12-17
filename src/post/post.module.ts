@@ -8,12 +8,14 @@ import { User } from 'src/user/entities/user.entity';
 import { Like } from './entities/like.entity';
 import { Comment } from './entities/comment.entity';
 import { JwtModule } from '@nestjs/jwt';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([Post, User, Like, Comment]),
     JwtModule,
+    NotificationModule, // Import để sử dụng NotificationService
   ],
   controllers: [PostController],
   providers: [PostService],

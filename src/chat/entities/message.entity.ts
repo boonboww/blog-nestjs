@@ -22,6 +22,9 @@ export class Message {
   @Column('text')
   content: string;
 
+  @Column({ nullable: true })
+  image_url: string;
+
   @Column({ default: false })
   is_read: boolean;
 

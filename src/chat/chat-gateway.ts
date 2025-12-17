@@ -61,9 +61,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('privateMessage')
   async handlePrivateMessage(
     client: Socket,
-    payload: { fromUserId: string; toUserId: string; message: string },
+    payload: {
+      fromUserId: string;
+      toUserId: string;
+      message: string;
+      imageUrl?: string;
+    },
   ) {
-    const { fromUserId, toUserId, message } = payload;
+    const { fromUserId, toUserId, message, imageUrl } = payload;
 
     // Kiểm tra 2 user có phải bạn bè không
     const areFriends = await this.friendService.areFriends(
@@ -78,11 +83,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { error: 'You must be friends to send private messages' };
     }
 
-    // Save message to database
+    // Save message to database (with optional image)
     const savedMessage = await this.chatService.saveMessage(
       +fromUserId,
       +toUserId,
       message,
+      imageUrl,
     );
 
     const targetSocket = this.users[toUserId];
@@ -93,6 +99,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       from: fromUserId,
       to: toUserId,
       message: message,
+      imageUrl: savedMessage.image_url,
       timestamp: savedMessage.created_at,
       isRead: false,
     };
@@ -155,5 +162,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleNewMessage(client: Socket, message: any) {
     console.log('BROADCAST:', message);
     this.server.emit('newMessage', message);
+  }
+
+  // =========================
+  //  SEND NOTIFICATION TO USER
+  // =========================
+
+  sendNotificationToUser(userId: number, notification: any) {
+    console.log('=== SEND NOTIFICATION ===');
+    console.log('Target userId:', userId);
+    console.log('Connected users:', this.users);
+
+    const targetSocket = this.users[userId.toString()];
+    console.log('Target socket:', targetSocket);
+
+    if (targetSocket) {
+      this.server.to(targetSocket).emit('newNotification', notification);
+      console.log('Notification sent!');
+      return true;
+    }
+    console.log('User offline, notification not sent');
+    return false; // User offline
   }
 }

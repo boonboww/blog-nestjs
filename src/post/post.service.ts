@@ -15,6 +15,8 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { Like as LikeEntity } from './entities/like.entity';
 import { Comment } from './entities/comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { NotificationService } from 'src/notification/notification.service';
+import { NotificationType } from 'src/notification/entities/notification.entity';
 
 @Injectable()
 export class PostService {
@@ -24,6 +26,7 @@ export class PostService {
     @InjectRepository(LikeEntity)
     private likeRepository: Repository<LikeEntity>,
     @InjectRepository(Comment) private commentRepository: Repository<Comment>,
+    private notificationService: NotificationService,
   ) {}
   async create(userId: number, createPostDto: CreatePostDto): Promise<Post> {
     const user = await this.userRepository.findOneBy({ id: userId });
@@ -208,7 +211,10 @@ export class PostService {
   // ============ LIKE METHODS ============
 
   async likePost(postId: number, userId: number) {
-    const post = await this.postRepository.findOneBy({ id: postId });
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -227,6 +233,15 @@ export class PostService {
     });
 
     await this.likeRepository.save(like);
+
+    // Tạo notification cho chủ bài viết
+    await this.notificationService.createNotification({
+      recipientId: post.user.id,
+      senderId: userId,
+      type: NotificationType.LIKE,
+      postId: postId,
+    });
+
     return { message: 'Post liked successfully' };
   }
 
@@ -277,7 +292,10 @@ export class PostService {
   // ============ COMMENT METHODS ============
 
   async createComment(postId: number, userId: number, dto: CreateCommentDto) {
-    const post = await this.postRepository.findOneBy({ id: postId });
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -289,6 +307,14 @@ export class PostService {
     });
 
     const savedComment = await this.commentRepository.save(comment);
+
+    // Tạo notification cho chủ bài viết
+    await this.notificationService.createNotification({
+      recipientId: post.user.id,
+      senderId: userId,
+      type: NotificationType.COMMENT,
+      postId: postId,
+    });
 
     // Return with user info
     return await this.commentRepository.findOne({
