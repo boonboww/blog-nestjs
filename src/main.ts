@@ -7,7 +7,10 @@ async function bootstrap() {
 
   // ENABLE CORS FOR FRONTEND
   app.enableCors({
-    origin: 'http://localhost:5173', // FE Vite
+    origin: [
+      'http://localhost:5173', // FE Vite (development)
+      'https://gooblog.vercel.app', // FE Vercel (production)
+    ],
     methods: 'GET,POST,PUT,PATCH,DELETE',
     credentials: true,
   });
