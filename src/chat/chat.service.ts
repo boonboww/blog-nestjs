@@ -90,77 +90,77 @@ export class ChatService {
   }
 
   async getConversations(userId: number) {
-    // Get all distinct users that userId has chatted with
-    const conversations = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('DISTINCT sub.other_user_id', 'userId')
-      .addSelect('MAX(sub.created_at)', 'lastMessageTime')
-      .addSelect(
-        'SUM(CASE WHEN sub.receiver_id = :userId AND sub.is_read = false THEN 1 ELSE 0 END)',
-        'unreadCount',
-      )
-      .from((subQuery) => {
-        return subQuery
-          .select(
-            'CASE WHEN sender_id = :userId THEN receiver_id ELSE sender_id END',
-            'other_user_id',
-          )
-          .addSelect('id')
-          .addSelect('sender_id')
-          .addSelect('receiver_id')
-          .addSelect('content')
-          .addSelect('is_read')
-          .addSelect('created_at')
-          .from(Message, 'msg')
-          .where('sender_id = :userId OR receiver_id = :userId', { userId });
-      }, 'sub')
-      .groupBy('sub.other_user_id')
-      .orderBy('lastMessageTime', 'DESC')
-      .setParameter('userId', userId)
-      .getRawMany();
+    // Get all messages where the user is sender or receiver
+    const allMessages = await this.messageRepository.find({
+      where: [{ sender_id: userId }, { receiver_id: userId }],
+      order: { created_at: 'DESC' },
+    });
 
-    // Get user info and last message for each conversation
+    // Group by other user
+    const conversationMap = new Map<
+      number,
+      { lastMessage: Message; unreadCount: number }
+    >();
+
+    for (const msg of allMessages) {
+      const otherUserId =
+        msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
+
+      if (!conversationMap.has(otherUserId)) {
+        conversationMap.set(otherUserId, {
+          lastMessage: msg,
+          unreadCount: 0,
+        });
+      }
+
+      // Count unread messages (messages TO the current user that are not read)
+      if (msg.receiver_id === userId && !msg.is_read) {
+        const conv = conversationMap.get(otherUserId)!;
+        conv.unreadCount++;
+      }
+    }
+
+    // Get user info for each conversation
     const result = await Promise.all(
-      conversations.map(async (conv) => {
-        const otherUser = await this.userRepository.findOne({
-          where: { id: Number(conv.userId) },
-        });
+      Array.from(conversationMap.entries()).map(
+        async ([otherUserId, convData]) => {
+          const otherUser = await this.userRepository.findOne({
+            where: { id: otherUserId },
+          });
 
-        if (!otherUser) {
-          return null; // Skip if user doesn't exist anymore
-        }
+          if (!otherUser) {
+            return null;
+          }
 
-        const lastMessage = await this.messageRepository.findOne({
-          where: [
-            { sender_id: userId, receiver_id: Number(conv.userId) },
-            { sender_id: Number(conv.userId), receiver_id: userId },
-          ],
-          order: { created_at: 'DESC' },
-        });
-
-        if (!lastMessage) {
-          return null; // Skip if no messages found
-        }
-
-        return {
-          user: {
-            id: otherUser.id,
-            firstName: otherUser.first_Name,
-            lastName: otherUser.last_Name,
-            avatar: otherUser.avatar,
-          },
-          lastMessage: {
-            content: lastMessage.content,
-            timestamp: lastMessage.created_at,
-            isFromMe: lastMessage.sender_id === userId,
-          },
-          unreadCount: Number(conv.unreadCount),
-        };
-      }),
+          return {
+            user: {
+              id: otherUser.id,
+              firstName: otherUser.first_Name,
+              lastName: otherUser.last_Name,
+              avatar: otherUser.avatar,
+            },
+            lastMessage: {
+              content: convData.lastMessage.content,
+              timestamp: convData.lastMessage.created_at,
+              isFromMe: convData.lastMessage.sender_id === userId,
+            },
+            unreadCount: convData.unreadCount,
+          };
+        },
+      ),
     );
 
-    // Filter out null values
-    return { data: result.filter((item) => item !== null) };
+    // Filter out null values and sort by last message time
+    const filtered = result.filter(
+      (item): item is NonNullable<typeof item> => item !== null,
+    );
+    filtered.sort(
+      (a, b) =>
+        new Date(b.lastMessage.timestamp).getTime() -
+        new Date(a.lastMessage.timestamp).getTime(),
+    );
+
+    return { data: filtered };
   }
 
   async markAsRead(userId: number, conversationWithUserId: number) {
